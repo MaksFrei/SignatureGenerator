@@ -1,11 +1,11 @@
 ﻿using System.Runtime.InteropServices;
 
-namespace SignatureGenerator.CLI
+namespace SignatureGenerator.Generator.Utils
 {
     /// <summary>
     /// Provides access to info from kernel32.dll
     /// </summary>
-    public static class Utility
+    public static class RamInformator
     {
         /// <summary>
         /// Tryes to get RAM info
@@ -38,7 +38,7 @@ namespace SignatureGenerator.CLI
             public ulong ullAvailExtendedVirtual;
             public MEMORYSTATUSEX()
             {
-                this.dwLength = (uint)Marshal.SizeOf(typeof(MEMORYSTATUSEX));
+                dwLength = (uint)Marshal.SizeOf(typeof(MEMORYSTATUSEX));
             }
         }
 

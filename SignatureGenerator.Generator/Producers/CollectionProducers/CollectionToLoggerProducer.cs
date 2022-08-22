@@ -4,6 +4,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Threading;
 using Microsoft.Extensions.Logging;
+using SignatureGenerator.Generator.Utils;
 
 namespace SignatureGenerator.Generator.Producers.CollectionProducers
 {
@@ -70,9 +71,7 @@ namespace SignatureGenerator.Generator.Producers.CollectionProducers
                     SyncEvent.Wait(cancellationToken);
                     if (consumedData.TryTake(out var item))
                     {
-
-                        //ProducedData.LogInformation($"Block number: {item.Order}{Environment.NewLine}Hash: {item.SHA256}{Environment.NewLine}");
-                        Console.WriteLine($"Block number: {item.Order}{Environment.NewLine}Hash: {item.SHA256}{Environment.NewLine}");
+                        ProducedData.LogStraightToConsole($"Block number: {item.Order}{Environment.NewLine}Hash: {item.SHA256}{Environment.NewLine}");
                     }
                 }
             }

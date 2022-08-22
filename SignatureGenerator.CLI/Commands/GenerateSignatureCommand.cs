@@ -1,5 +1,6 @@
 ﻿using SignatureGenerator.CLI.Commands.Abstractions;
 using SignatureGenerator.Generator.Abstractions;
+using SignatureGenerator.Generator.Utils;
 using System;
 using System.IO;
 using System.Threading;
@@ -60,7 +61,7 @@ namespace SignatureGenerator.CLI.Commands
                 }
                 else if (ulong.TryParse(command, out blockSize))
                 {
-                    if (Utility.TryToGetRamInfo(out var info) && info.AvailableRAM + blockSize * 10 < info.TotalRAM)
+                    if (RamInformator.TryToGetRamInfo(out var info) && info.AvailableRAM + blockSize * 10 < info.TotalRAM)
                     {
                         break;
                     }                        
