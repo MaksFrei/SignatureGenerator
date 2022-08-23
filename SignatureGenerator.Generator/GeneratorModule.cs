@@ -29,7 +29,6 @@ namespace SignatureGenerator.Generator
                 .AddSingleton<ICollectionProducerFactory, CollectionProducerFactory>()
                 .AddSingleton<IStreamProducerFactory, StreamProducerFactory>()
                 .AddTransient<ICollectionProducer<IProducerConsumerCollection<ByteChunk>, IProducerConsumerCollection<HashedChunk>>, BytesChunksToSHA256Producer>()
-                .AddTransient<ICollectionProducer<string, ILogger<Generator>>, FileToConsoleProducer>()
                 .AddTransient<ICollectionProducer<IProducerConsumerCollection<HashedChunk>, ILogger<Generator>>, CollectionToLoggerProducer>()
                 .AddTransient<IValuesLoadBalancer, ValueBasedLoadBalancer>()
                 .AddTransient<StreamToConcurrentCollectionProducer, StreamToConcurrentCollectionProducer>();
