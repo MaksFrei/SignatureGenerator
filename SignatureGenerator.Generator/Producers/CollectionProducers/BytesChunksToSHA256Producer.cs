@@ -76,7 +76,7 @@ namespace SignatureGenerator.Generator.Producers.CollectionProducers
                     SyncEvent.Wait(cancellationToken);
                     if (consumedData.TryTake(out var item))
                     {
-                        while (!ProducedData.TryAdd(new HashedChunk(item.Order, Convert.ToHexString(item.Bytes)))
+                        while (!ProducedData.TryAdd(new HashedChunk(item.Order, Convert.ToHexString(sha.ComputeHash(item.Bytes))))
                              && !cancellationToken.IsCancellationRequested) ;
                     }
                 }
