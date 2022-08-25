@@ -4,7 +4,7 @@ using System;
 
 namespace SignatureGenerator.Generator.StreamProducers
 {
-    public class StreamProducerFactory : IStreamProducerFactory
+    internal class StreamProducerFactory : IStreamProducerFactory
     {
         private readonly IServiceProvider services;
 

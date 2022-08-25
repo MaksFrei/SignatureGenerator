@@ -8,90 +8,25 @@ using SignatureGenerator.Generator.Utils;
 
 namespace SignatureGenerator.Generator.Producers.CollectionProducers
 {
-    internal class CollectionToLoggerProducer : ICollectionProducer<IProducerConsumerCollection<HashedChunk>, ILogger<Generator>>
+    internal class CollectionToLoggerProducer : CollectionProducer<HashedChunk, ILogger<Generator>>
     {
-        private readonly ILogger<CollectionToLoggerProducer> logger;
-
-        /// <summary>
-        /// Flag for current work status
-        /// </summary>
-        public bool DoesWorkDone { get; private set; }
-
-        /// <summary>
-        /// <inheritdoc/>
-        /// </summary>
-        public ILogger<Generator> ProducedData { get; private set; }
-
-        /// <summary>
-        /// <inheritdoc/>
-        /// </summary>
-        public ManualResetEventSlim SyncEvent { get; }
-
         /// <summary>
         /// ctor
         /// </summary>
         public CollectionToLoggerProducer(ILogger<CollectionToLoggerProducer> logger)
+            : base(logger)
         {
-            SyncEvent = new ManualResetEventSlim(true);
-            this.logger = logger;
         }
 
-        /// <summary>
-        /// <inheritdoc/>
-        /// </summary>
-        /// <param name="collection">Produced collection</param>
-        /// <returns></returns>
-        public ICollectionProducer<IProducerConsumerCollection<HashedChunk>, ILogger<Generator>>
-            SetProducedData(ILogger<Generator> data)
+        protected override void DoWork(HashedChunk item, CancellationToken cancellationToken)
         {
-            if (data is null) throw new ArgumentNullException(nameof(data));
-
-            ProducedData = data;
-            return this;
+            ProducedData.LogStraightToConsole($"Block number: {item.Order}{Environment.NewLine}Hash: {item.SHA256}{Environment.NewLine}");
         }
 
-        /// <summary>
-        /// <inheritdoc/>
-        /// </summary>
-        /// <param name="consumedData"><inheritdoc/></param>
-        /// <param name="doesConsumedCollectionFinishedCallback"><inheritdoc/></param>
-        /// <param name="cancellationToken"><inheritdoc/></param>
-        public void Produce(IProducerConsumerCollection<HashedChunk> consumedData, Func<bool> doesConsumedCollectionFinishedCallback, CancellationToken cancellationToken = default)
+        protected override void LoadBalancing(IProducerConsumerCollection<HashedChunk> consumedData, ILogger<Generator> producedData)
         {
-            if (ProducedData is null) throw new ArgumentNullException(nameof(ProducedData));
-            if (consumedData is null) throw new ArgumentNullException(nameof(consumedData));
-
-            try
-            {
-                DoesWorkDone = false;
-                while (consumedData.Count > 0 || !doesConsumedCollectionFinishedCallback.Invoke())
-                {
-                    if (cancellationToken.IsCancellationRequested) throw new OperationCanceledException();
-
-                    SyncEvent.Wait(cancellationToken);
-                    if (consumedData.TryTake(out var item))
-                    {
-                        ProducedData.LogStraightToConsole($"Block number: {item.Order}{Environment.NewLine}Hash: {item.SHA256}{Environment.NewLine}");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.LogError($"Exception: {ex.Message}{Environment.NewLine}Stacktrace: {ex.StackTrace}");
-                return;
-            }
-            finally
-            {
-                DoesWorkDone = true;
-            }
-        }
-
-        /// <summary>
-        /// <inheritdoc/>
-        /// </summary>
-        public void Dispose()
-        {
-            SyncEvent.Dispose();
+            //todo: There may be some kind of RAM load balancer here, but we don't need it right now.
+            return;
         }
     }
 }

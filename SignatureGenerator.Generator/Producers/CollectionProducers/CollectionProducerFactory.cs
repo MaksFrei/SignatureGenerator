@@ -4,7 +4,7 @@ using System;
 
 namespace SignatureGenerator.Generator.Producers.CollectionProducers
 {
-    public class CollectionProducerFactory : ICollectionProducerFactory
+    internal class CollectionProducerFactory : ICollectionProducerFactory
     {
         private readonly IServiceProvider services;
 

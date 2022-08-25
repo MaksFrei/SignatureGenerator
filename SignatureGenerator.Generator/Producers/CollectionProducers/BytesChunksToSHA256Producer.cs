@@ -11,93 +11,53 @@ namespace SignatureGenerator.Generator.Producers.CollectionProducers
     /// <summary>
     /// <inheritdoc/>
     /// </summary>
-    public class BytesChunksToSHA256Producer
-        : ICollectionProducer<IProducerConsumerCollection<ByteChunk>, IProducerConsumerCollection<HashedChunk>>
+    internal class BytesChunksToSHA256Producer
+        : CollectionProducer<ByteChunk, IProducerConsumerCollection<HashedChunk>>
     {
-        private readonly ILogger<BytesChunksToSHA256Producer> logger;
-
-        /// <summary>
-        /// Flag for current work status
-        /// </summary>
-        public bool DoesWorkDone { get; private set; }
-
-        /// <summary>
-        /// <inheritdoc/>
-        /// </summary>
-        public IProducerConsumerCollection<HashedChunk> ProducedData { get; private set; }
-
-        /// <summary>
-        /// <inheritdoc/>
-        /// </summary>
-        public ManualResetEventSlim SyncEvent { get; }
+        private readonly SHA256 hasher = SHA256.Create();
 
         /// <summary>
         /// ctor
         /// </summary>
         public BytesChunksToSHA256Producer(ILogger<BytesChunksToSHA256Producer> logger)
+            : base(logger)
         {
-            SyncEvent = new ManualResetEventSlim(true);
-            this.logger = logger;
         }
 
         /// <summary>
         /// <inheritdoc/>
         /// </summary>
-        /// <param name="data">Produced collection</param>
-        /// <returns></returns>
-        public ICollectionProducer<IProducerConsumerCollection<ByteChunk>, IProducerConsumerCollection<HashedChunk>>
-            SetProducedData(IProducerConsumerCollection<HashedChunk> data)
+        public override void Dispose()
         {
-            if (data is null) throw new ArgumentNullException(nameof(data));
-
-            ProducedData = data;
-            return this;
+            hasher.Dispose();
+            base.Dispose();
         }
 
-        /// <summary>
-        /// <inheritdoc/>
-        /// </summary>
-        /// <param name="consumedData"><inheritdoc/></param>
-        /// <param name="doesConsumedCollectionFinishedCallback"><inheritdoc/></param>
-        /// <param name="cancellationToken"><inheritdoc/></param>
-        public void Produce(IProducerConsumerCollection<ByteChunk> consumedData, Func<bool> doesConsumedCollectionFinishedCallback, CancellationToken cancellationToken = default)
+        protected override void DoWork(ByteChunk item, CancellationToken cancellationToken)
         {
-            if (ProducedData is null) throw new ArgumentNullException(nameof(ProducedData));
-            if (consumedData is null) throw new ArgumentNullException(nameof(consumedData));
-
-            try
-            {
-                DoesWorkDone = false;
-                using var sha = SHA256.Create();
-                while (consumedData.Count > 0 || !doesConsumedCollectionFinishedCallback.Invoke())
-                {
-                    if (cancellationToken.IsCancellationRequested) throw new OperationCanceledException();
-
-                    SyncEvent.Wait(cancellationToken);
-                    if (consumedData.TryTake(out var item))
-                    {
-                        while (!ProducedData.TryAdd(new HashedChunk(item.Order, Convert.ToHexString(sha.ComputeHash(item.Bytes))))
-                             && !cancellationToken.IsCancellationRequested) ;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.LogError($"Exception: {ex.Message}{Environment.NewLine}Stacktrace: {ex.StackTrace}");
-                return;
-            }
-            finally
-            {
-                DoesWorkDone = true;
-            }
+            while (!ProducedData.TryAdd(new HashedChunk(item.Order, Convert.ToHexString(hasher.ComputeHash(item.Bytes))))
+                 && !cancellationToken.IsCancellationRequested) ;
         }
 
-        /// <summary>
-        /// <inheritdoc/>
-        /// </summary>
-        public void Dispose()
+        protected override void LoadBalancing(IProducerConsumerCollection<ByteChunk> consumedData, IProducerConsumerCollection<HashedChunk> producedData)
         {
-            SyncEvent.Dispose();
+            if (!isEnough())
+            {
+                foreach (var @event in LoadBalancingEvents)
+                    @event.Reset();
+            }
+            else
+            {
+                foreach (var @event in LoadBalancingEvents)
+                    @event.Set();
+            }
+
+            bool isEnough()
+            {
+                return producedData.Count == 0
+                    || producedData.Count <= consumedData.Count
+                    && 100 / ((double)consumedData.Count / (consumedData.Count - producedData.Count)) <= 10;
+            }
         }
     }
 }

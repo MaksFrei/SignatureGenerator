@@ -12,7 +12,7 @@ namespace SignatureGenerator.Generator.StreamProducers
     /// <inheritdoc/>
     /// </summary>
     /// <typeparam name="TStreamType"></typeparam>
-    class StreamToConcurrentCollectionProducer : IStreamToCollectionProducer
+    internal class StreamToConcurrentCollectionProducer : IStreamToCollectionProducer
     {
         private readonly ILogger<StreamToConcurrentCollectionProducer> logger;
 

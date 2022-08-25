@@ -2,9 +2,9 @@
 using System;
 namespace SignatureGenerator.Generator.Utils
 {
-    public static class LoggerExtentions
+    internal static class LoggerExtentions
     {
-        public static void LogStraightToConsole(this ILogger logger, string value) => Console.WriteLine(value);
+        internal static void LogStraightToConsole(this ILogger logger, string value) => Console.WriteLine(value);
     }
     
 }

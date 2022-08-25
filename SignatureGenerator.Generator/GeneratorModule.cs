@@ -1,8 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SignatureGenerator.Generator.Abstractions;
-using SignatureGenerator.Generator.LoadBalancer;
-using SignatureGenerator.Generator.LoadBalancer.Abstractions;
 using SignatureGenerator.Generator.Models;
 using SignatureGenerator.Generator.Producers.CollectionProducers;
 using SignatureGenerator.Generator.Producers.CollectionProducers.Abstractions;
@@ -30,7 +28,6 @@ namespace SignatureGenerator.Generator
                 .AddSingleton<IStreamProducerFactory, StreamProducerFactory>()
                 .AddTransient<ICollectionProducer<IProducerConsumerCollection<ByteChunk>, IProducerConsumerCollection<HashedChunk>>, BytesChunksToSHA256Producer>()
                 .AddTransient<ICollectionProducer<IProducerConsumerCollection<HashedChunk>, ILogger<Generator>>, CollectionToLoggerProducer>()
-                .AddTransient<IValuesLoadBalancer, ValueBasedLoadBalancer>()
                 .AddTransient<StreamToConcurrentCollectionProducer, StreamToConcurrentCollectionProducer>();
         }
     }

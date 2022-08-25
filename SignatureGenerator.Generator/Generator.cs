@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
 using SignatureGenerator.Generator.Abstractions;
-using SignatureGenerator.Generator.LoadBalancer.Abstractions;
 using SignatureGenerator.Generator.Models;
 using SignatureGenerator.Generator.Producers.CollectionProducers;
 using SignatureGenerator.Generator.Producers.CollectionProducers.Abstractions;
@@ -24,7 +23,6 @@ namespace SignatureGenerator.Generator
         private const string TempFilesPath = "temp/";
         private readonly IStreamProducerFactory streamProducerFactory;
         private readonly ICollectionProducerFactory collectionProducerFactory;
-        private readonly IValuesLoadBalancer valuesLoadBalancer;
         private readonly ILogger<Generator> logger;
         private readonly int coresCount = Environment.ProcessorCount;
 
@@ -34,12 +32,10 @@ namespace SignatureGenerator.Generator
         /// <param name="streamProducerFactory"></param>
         public Generator(IStreamProducerFactory streamProducerFactory,
             ICollectionProducerFactory collectionProducerFactory,
-            IValuesLoadBalancer valuesLoadBalancer,
             ILoggerFactory loggerFactory)
         {
             this.streamProducerFactory = streamProducerFactory;
             this.collectionProducerFactory = collectionProducerFactory;
-            this.valuesLoadBalancer = valuesLoadBalancer;
             this.logger = loggerFactory.CreateLogger<Generator>();
         }
 
@@ -53,6 +49,7 @@ namespace SignatureGenerator.Generator
         {
             using var stream = new FileStream(filePath, FileMode.Open);
             var eventsForDiscBalance = new List<ManualResetEventSlim>();
+            var waitUntillWorkIsDone = new ManualResetEventSlim(false);
 
             var rawBlocksQueue = new ConcurrentQueue<ByteChunk>();
             using var fileToRawBlocksProducer = streamProducerFactory.Create<StreamToConcurrentCollectionProducer>()
@@ -64,28 +61,27 @@ namespace SignatureGenerator.Generator
             var rawBlocksToHashProducers = Enumerable.Range(0, coresCount).Select(_ =>
                      collectionProducerFactory
                     .Create<BytesChunksToSHA256Producer, IProducerConsumerCollection<ByteChunk>, IProducerConsumerCollection<HashedChunk>>()
-                    .SetProducedData(hashedBlocks))
+                    .SetProducedData(hashedBlocks)
+                    .SetLoadBalancingEvents(eventsForDiscBalance))
                 .Select(p => p.SetProducedData(hashedBlocks))
                 .ToList();
             var rawBlocksToHashFinishedCallback = () => rawBlocksToHashProducers.All(p => p.DoesWorkDone);
 
-            using var hashedBlocksToFileProducer = collectionProducerFactory
+            using var hashedBlocksToLogProducer = collectionProducerFactory
                 .Create<CollectionToLoggerProducer, IProducerConsumerCollection<HashedChunk>, ILogger<Generator>>()
-                .SetProducedData(logger);
+                .SetProducedData(logger)
+                .SetWorkIsDoneSyncEvent(waitUntillWorkIsDone);
 
             var filetoRawBlocksTask = new Thread(() => fileToRawBlocksProducer.Produce(stream, (int)blockSize, cancellationToken));
             var rawBlocksToHashTasks = rawBlocksToHashProducers.Select(p => new Thread(() => p.Produce(rawBlocksQueue, fileToRawBlocksFinishedCallback, cancellationToken)));
-            var hashToFileTask = new Thread(() => hashedBlocksToFileProducer.Produce(hashedBlocks, rawBlocksToHashFinishedCallback, cancellationToken));
+            var hashToLogTask = new Thread(() => hashedBlocksToLogProducer.Produce(hashedBlocks, rawBlocksToHashFinishedCallback, cancellationToken));
 
             filetoRawBlocksTask.Start();
             foreach (var task in rawBlocksToHashTasks)
                 task.Start();
-            hashToFileTask.Start();
+            hashToLogTask.Start();
 
-            while (!hashedBlocksToFileProducer.DoesWorkDone)
-            {
-                valuesLoadBalancer.BalanceByManualEvents(eventsForDiscBalance, hashedBlocks.Count, rawBlocksQueue.Count * 2);
-            }
+            waitUntillWorkIsDone.Wait();
 
             //Not sure that this is nessesary
             foreach (var producer in rawBlocksToHashProducers)
